@@ -1,0 +1,68 @@
+{
+  "pipegen_version": "0.5.1",
+  "engine_name": "yolov8s_person_ppe_fp16.engine",
+  "model_type": "Primary GIE - Workplace Safety Multi-Class Detector",
+  "precision": "FP16 (Half Precision)",
+  "compiled_at": "2026-10-16T18:26:00Z",
+  "hardware_targets": {
+    "jetson_orin_nano_8gb": {
+      "soc": "NVIDIA Tegra Orin (6-core Arm Cortex-A78AE)",
+      "gpu": "1024-core NVIDIA Ampere with 32 Tensor Cores",
+      "power_profile": "15W_MODE",
+      "batch_size": 1,
+      "input_resolution": "640x640x3",
+      "latency_p50_ms": 14.8,
+      "latency_p95_ms": 15.6,
+      "latency_p99_ms": 16.2,
+      "throughput_fps": 67.5,
+      "gpu_memory_mb": 420.0,
+      "speedup_vs_fp32": "2.35x"
+    },
+    "jetson_agx_orin_64gb": {
+      "soc": "NVIDIA Tegra Orin (12-core Arm Cortex-A78AE)",
+      "gpu": "2048-core NVIDIA Ampere with 64 Tensor Cores",
+      "power_profile": "MAXN_50W",
+      "batch_size": 1,
+      "input_resolution": "640x640x3",
+      "latency_p50_ms": 6.8,
+      "latency_p95_ms": 7.2,
+      "latency_p99_ms": 7.9,
+      "throughput_fps": 147.0,
+      "gpu_memory_mb": 445.0,
+      "speedup_vs_fp32": "3.12x"
+    },
+    "nvidia_rtx_4090": {
+      "gpu": "NVIDIA GeForce RTX 4090 (Ada Lovelace)",
+      "vram": "24GB GDDR6X",
+      "batch_size": 1,
+      "input_resolution": "640x640x3",
+      "latency_p50_ms": 4.1,
+      "latency_p95_ms": 4.6,
+      "latency_p99_ms": 5.1,
+      "throughput_fps": 243.9,
+      "gpu_memory_mb": 512.0,
+      "speedup_vs_fp32": "3.48x"
+    }
+  },
+  "int8_quantization_comparison": {
+    "engine_int8": "yolov8s_person_ppe_int8.engine",
+    "calibration_dataset": "COCO_Workplace_Subset_500_Samples",
+    "orin_nano_int8_fps": 104.2,
+    "orin_nano_int8_latency_ms": 9.6,
+    "accuracy_mAP50_fp16": 0.942,
+    "accuracy_mAP50_int8": 0.938,
+    "accuracy_retention_pct": 99.57,
+    "memory_savings_pct": 48.2
+  },
+  "pipeline_end_to_end_breakdown_ms": {
+    "v4l2_frame_capture": 2.1,
+    "nvstreammux_batching": 0.8,
+    "primary_gie_yolov8s_tensorrt": 6.8,
+    "nvtracker_nvdcf": 2.4,
+    "nvdsanalytics_polygon_geofencing": 0.5,
+    "secondary_gie_ppe_crop_classify": 2.2,
+    "nvmsgconv_and_mqtt_publish": 1.1,
+    "total_end_to_end_latency_ms": 15.9,
+    "effective_pipeline_fps": 62.8
+  }
+}

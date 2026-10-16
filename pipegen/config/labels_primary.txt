@@ -1,0 +1,4 @@
+person
+machinery
+forklift
+hazard_barrel

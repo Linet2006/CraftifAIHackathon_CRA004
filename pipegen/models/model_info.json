@@ -1,0 +1,62 @@
+{
+  "models": [
+    {
+      "model_name": "yolov8s_workplace_safety",
+      "architecture": "YOLOv8s-Detection",
+      "purpose": "Primary GIE - Detects human workers, industrial mobile equipment, forklifts, and hazardous material barrels",
+      "source_framework": "PyTorch 2.x",
+      "exported_format": "ONNX (opset 17)",
+      "input_tensor": {
+        "name": "images",
+        "shape": [1, 3, 640, 640],
+        "dtype": "float32",
+        "normalization": "div_255"
+      },
+      "output_tensors": [
+        {
+          "name": "output0",
+          "shape": [1, 8, 8400],
+          "dtype": "float32",
+          "description": "BBoxes [cx, cy, w, h] + class logits for 4 classes"
+        }
+      ],
+      "classes": [
+        {"id": 0, "name": "person", "safety_priority": "CRITICAL"},
+        {"id": 1, "name": "machinery", "safety_priority": "HIGH"},
+        {"id": 2, "name": "forklift", "safety_priority": "HIGH"},
+        {"id": 3, "name": "hazard_barrel", "safety_priority": "MEDIUM"}
+      ],
+      "tensorrt_engines": {
+        "fp32_engine": "yolov8s_person_ppe_fp32.engine",
+        "fp16_engine": "yolov8s_person_ppe_fp16.engine",
+        "int8_engine": "yolov8s_person_ppe_int8.engine"
+      }
+    },
+    {
+      "model_name": "ppe_classifier_mobilenetv3",
+      "architecture": "MobileNetV3-Small",
+      "purpose": "Secondary GIE - Sub-crops detected person ROIs and classifies Headgear (Hardhat) and Torso (Safety Vest) compliance",
+      "source_framework": "PyTorch 2.x",
+      "exported_format": "ONNX (opset 17)",
+      "input_tensor": {
+        "name": "input_crop",
+        "shape": [1, 3, 224, 224],
+        "dtype": "float32",
+        "normalization": "imagenet_mean_std"
+      },
+      "output_tensors": [
+        {
+          "name": "probabilities",
+          "shape": [1, 3],
+          "dtype": "float32",
+          "description": "Logits/probabilities across 3 safety compliance classes"
+        }
+      ],
+      "classes": [
+        {"id": 0, "name": "helmet_compliant", "safe": true},
+        {"id": 1, "name": "vest_compliant", "safe": true},
+        {"id": 2, "name": "non_compliant_risk", "safe": false}
+      ]
+    }
+  ]
+}

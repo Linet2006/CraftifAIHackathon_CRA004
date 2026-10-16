@@ -1,0 +1,52 @@
+{
+  "project_name": "Workplace Safety Sentinel (SentinelAI)",
+  "hackathon": "HackwithBangalore 4.0 / CraftifAI Physical AI Hackathon",
+  "track": "Track A - PipeGen (Perception) + Closed-Loop Actuation",
+  "version": "1.0.0",
+  "timestamp": "2026-10-16T18:24:00+05:30",
+  "specification_prompt": "Deploy an ultra-low latency, real-time edge vision pipeline for high-risk industrial manufacturing and construction environments. The system must process RTSP or live camera feeds at 60+ FPS, perform multi-person tracking, verify Personal Protective Equipment (PPE) compliance including hardhats and high-visibility safety vests, and enforce dynamic geofenced hazard zones around automated machinery. When a safety breach occurs—such as an unequipped worker entering a robotic cell or a trip/fall event—the pipeline must immediately generate millisecond-grade telemetry over MQTT, log structured JSON forensic records, and trigger an external hardware closed-loop actuator (siren/strobe and emergency machine halt via ESP32) to prevent workplace injury.",
+  "target_hardware": {
+    "primary": "NVIDIA Jetson Orin Nano / Jetson AGX Orin (JetPack 6.0)",
+    "cloud_dgpu": "NVIDIA RTX 4090 / Tesla T4 (DeepStream 7.0 / TensorRT 10.x)",
+    "local_hybrid": "Cross-platform x86_64 / Windows fallback with ONNX Runtime & OpenCV"
+  },
+  "functional_requirements": [
+    {
+      "id": "REQ-01",
+      "category": "Perception - Primary Detection",
+      "description": "Multi-person and industrial mobile equipment detection with high confidence filtering (>0.55).",
+      "target_fps": 60,
+      "max_latency_ms": 12.0
+    },
+    {
+      "id": "REQ-02",
+      "category": "Perception - Secondary Classification",
+      "description": "High-accuracy PPE verification: classify Hardhat (Compliant / Non-Compliant) and Safety Vest (Compliant / Non-Compliant) per detected worker.",
+      "target_accuracy": "94.8%"
+    },
+    {
+      "id": "REQ-03",
+      "category": "Spatial Geofencing",
+      "description": "Interactive polygon zone containment algorithms to detect perimeter intrusion into High-Voltage or Robotic hazard zones in real time.",
+      "algorithm": "Ray-casting Point-in-Polygon & Shapely Intersection"
+    },
+    {
+      "id": "REQ-04",
+      "category": "Actionable Telemetry",
+      "description": "Produce structured JSON metadata events and broadcast over MQTT within 50ms of violation onset.",
+      "topics": ["workplace/safety/alerts", "workplace/safety/zones", "workplace/safety/telemetry"]
+    },
+    {
+      "id": "REQ-05",
+      "category": "Closed-Loop Actuation",
+      "description": "Physical feedback loop via ESP32 micro-controller driving audio buzzer alarms, LED strobes, and emergency interlock relays.",
+      "protocol": "MQTT / Serial UART @ 115200 baud"
+    },
+    {
+      "id": "REQ-06",
+      "category": "Operator HUD & Dashboard",
+      "description": "Real-time interactive glassmorphic web console showing live video stream, live violation feed, interactive geofence zone editor, and performance diagnostics.",
+      "ui_stack": "HTML5, Vanilla Modern CSS, JavaScript, WebSocket / HTTP stream"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+helmet_compliant
+vest_compliant
+non_compliant_risk

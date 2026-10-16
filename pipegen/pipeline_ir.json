@@ -1,0 +1,178 @@
+{
+  "$schema": "https://developer.craftifai.com/schemas/pipegen/v0.5.1/pipeline_ir.json",
+  "pipeline_id": "pipegen-sentinel-workplace-safety-001",
+  "name": "Workplace Safety Sentinel Pipeline IR",
+  "framework": "NVIDIA DeepStream 7.0 / GStreamer 1.20",
+  "graph": {
+    "nodes": [
+      {
+        "id": "node_input_source",
+        "type": "source",
+        "plugin": "nvv4l2camerasrc | uridecodebin",
+        "properties": {
+          "uri": "file:///opt/craftifai/samples/workplace_factory_cam01.mp4",
+          "live_source": true,
+          "source_type": "RTSP_OR_FILE",
+          "resolution": [1920, 1080],
+          "framerate": 30
+        },
+        "outputs": ["stream_raw_yuv"]
+      },
+      {
+        "id": "node_stream_mux",
+        "type": "muxer",
+        "plugin": "nvstreammux",
+        "properties": {
+          "batch_size": 1,
+          "width": 1920,
+          "height": 1080,
+          "batched_push_timeout": 40000,
+          "nvbuf_memory_type": "NVBUF_MEM_CUDA_DEVICE"
+        },
+        "inputs": ["stream_raw_yuv"],
+        "outputs": ["batched_buffer"]
+      },
+      {
+        "id": "node_primary_detector_gie",
+        "type": "inference_engine",
+        "plugin": "nvinfer",
+        "model_role": "Primary_GIE",
+        "properties": {
+          "config_file": "config/config_infer_primary.txt",
+          "engine_file": "compiler/engines/yolov8s_person_ppe_fp16.engine",
+          "network_mode": "FP16",
+          "batch_size": 1,
+          "input_dims": [1, 3, 640, 640],
+          "tensor_format": "NCHW_RGB_NORM",
+          "classes": ["person", "machinery", "forklift", "hazard_barrel"]
+        },
+        "inputs": ["batched_buffer"],
+        "outputs": ["batched_with_bbox_meta"]
+      },
+      {
+        "id": "node_multi_object_tracker",
+        "type": "tracker",
+        "plugin": "nvtracker",
+        "properties": {
+          "ll_lib_file": "/opt/nvidia/deepstream/deepstream/lib/libnvds_nvmultiobjecttracker.so",
+          "ll_config_file": "/opt/nvidia/deepstream/deepstream/samples/configs/deepstream-app/config_tracker_NvDCF_perf.yml",
+          "tracker_width": 640,
+          "tracker_height": 384,
+          "gpu_id": 0,
+          "enable_batch_process": 1
+        },
+        "inputs": ["batched_with_bbox_meta"],
+        "outputs": ["tracked_object_stream"]
+      },
+      {
+        "id": "node_secondary_ppe_classifier_gie",
+        "type": "inference_engine",
+        "plugin": "nvinfer",
+        "model_role": "Secondary_GIE",
+        "properties": {
+          "config_file": "config/config_infer_secondary_ppe.txt",
+          "engine_file": "compiler/engines/ppe_classifier_mobilenetv3_fp16.engine",
+          "operate_on_class_ids": [0],
+          "network_mode": "FP16",
+          "input_dims": [1, 3, 224, 224],
+          "classes": ["helmet_compliant", "vest_compliant", "non_compliant_risk"]
+        },
+        "inputs": ["tracked_object_stream"],
+        "outputs": ["classified_worker_stream"]
+      },
+      {
+        "id": "node_nvdsanalytics_zones",
+        "type": "analytics_engine",
+        "plugin": "nvdsanalytics",
+        "properties": {
+          "config_file": "config/nvdsanalytics_config.txt",
+          "features": ["ROI_INTRUSION", "LINE_CROSSING", "DIRECTION_DETECTION"],
+          "zones": [
+            {
+              "zone_id": "danger_zone_alpha",
+              "type": "ROI",
+              "polygon": [[520, 280], [1050, 280], [1120, 780], [480, 780]],
+              "alert_condition": "person_present"
+            },
+            {
+              "zone_id": "exclusion_zone_bravo",
+              "type": "ROI",
+              "polygon": [[120, 400], [420, 400], [440, 850], [100, 850]],
+              "alert_condition": "unauthorized_machinery_overlap"
+            }
+          ]
+        },
+        "inputs": ["classified_worker_stream"],
+        "outputs": ["analyzed_event_stream"]
+      },
+      {
+        "id": "node_osd_visualizer",
+        "type": "osd",
+        "plugin": "nvdsosd",
+        "properties": {
+          "process_mode": 1,
+          "text_font_size": 12,
+          "display_text": true,
+          "display_bbox": true,
+          "display_mask": false
+        },
+        "inputs": ["analyzed_event_stream"],
+        "outputs": ["rendered_video_buffer"]
+      },
+      {
+        "id": "node_msg_converter",
+        "type": "message_converter",
+        "plugin": "nvmsgconv",
+        "properties": {
+          "config": "config/dstest5_msgconv_sample_config.txt",
+          "payload_type": "NVDS_PAYLOAD_CUSTOM_JSON",
+          "msg_conv_comp_id": 1
+        },
+        "inputs": ["analyzed_event_stream"],
+        "outputs": ["json_telemetry_payload"]
+      },
+      {
+        "id": "node_mqtt_broker_sink",
+        "type": "message_broker",
+        "plugin": "nvmsgbroker",
+        "properties": {
+          "proto_lib": "/opt/nvidia/deepstream/deepstream/lib/libnvds_mqtt_proto.so",
+          "conn_str": "localhost;1883;pipegen_edge_client",
+          "topic": "workplace/safety/alerts",
+          "qos": 1
+        },
+        "inputs": ["json_telemetry_payload"],
+        "outputs": []
+      },
+      {
+        "id": "node_video_sink",
+        "type": "sink",
+        "plugin": "nveglglessink | hlssink | appsink",
+        "properties": {
+          "sync": false,
+          "max_lateness": -1,
+          "qos": false
+        },
+        "inputs": ["rendered_video_buffer"],
+        "outputs": []
+      }
+    ]
+  },
+  "execution_profiles": {
+    "orin_nano": {
+      "target_fps": 64.5,
+      "precision": "FP16",
+      "power_mode": "15W"
+    },
+    "orin_agx": {
+      "target_fps": 142.0,
+      "precision": "INT8",
+      "power_mode": "MAXN"
+    },
+    "rtx4090": {
+      "target_fps": 210.0,
+      "precision": "FP16",
+      "power_mode": "Standard"
+    }
+  }
+}
