@@ -11,24 +11,34 @@ import time
 import math
 import cv2
 import numpy as np
-from shapely.geometry import Point, Polygon
 from typing import List, Dict, Tuple, Any
 
-from mqtt_handler import mqtt_service
+try:
+    from shapely.geometry import Point, Polygon
+    SHAPELY_AVAILABLE = True
+except ImportError:
+    SHAPELY_AVAILABLE = False
+
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "hardware_bridge"))
-from closed_loop_controller import bridge
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+for p in [CURRENT_DIR, ROOT_DIR]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+from backend.mqtt_handler import mqtt_service
+from hardware_bridge.closed_loop_controller import bridge
 
 class EdgeSafetyPipeline:
     def __init__(self):
         # Default Danger Zone Polygon (Robotic Cell)
         self.danger_zone_coords = [(420, 180), (860, 180), (920, 520), (380, 520)]
-        self.danger_polygon = Polygon(self.danger_zone_coords)
+        self.danger_polygon = Polygon(self.danger_zone_coords) if SHAPELY_AVAILABLE else None
 
         # Exclusion Zone Bravo (Conveyor area)
         self.exclusion_zone_coords = [(80, 320), (320, 320), (340, 680), (70, 680)]
-        self.exclusion_polygon = Polygon(self.exclusion_zone_coords)
+        self.exclusion_polygon = Polygon(self.exclusion_zone_coords) if SHAPELY_AVAILABLE else None
 
         # Performance Metrics
         self.fps = 0.0
@@ -50,7 +60,8 @@ class EdgeSafetyPipeline:
         """Allows dynamic polygon geofence editing from the dashboard"""
         if len(points) >= 3:
             self.danger_zone_coords = [tuple(p) for p in points]
-            self.danger_polygon = Polygon(self.danger_zone_coords)
+            if SHAPELY_AVAILABLE:
+                self.danger_polygon = Polygon(self.danger_zone_coords)
             return True
         return False
 
@@ -79,9 +90,16 @@ class EdgeSafetyPipeline:
             track_id = det["id"]
             
             x1, y1, x2, y2 = bbox
-            foot_point = Point((x1 + x2) / 2.0, y2)
+            foot_x = (x1 + x2) / 2.0
+            foot_y = float(y2)
 
-            is_in_danger_zone = self.danger_polygon.contains(foot_point)
+            if SHAPELY_AVAILABLE and self.danger_polygon is not None:
+                foot_point = Point(foot_x, foot_y)
+                is_in_danger_zone = self.danger_polygon.contains(foot_point)
+            else:
+                pts = np.array(self.danger_zone_coords, dtype=np.int32)
+                is_in_danger_zone = cv2.pointPolygonTest(pts, (foot_x, foot_y), False) >= 0
+
             has_hardhat = det.get("hardhat", False)
             has_vest = det.get("vest", False)
 

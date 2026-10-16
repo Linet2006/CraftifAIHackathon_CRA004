@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Export Incidents Button
+  // Export Incidents JSON
   const btnExport = document.getElementById('btn-export-incidents');
   if (btnExport) {
     btnExport.addEventListener('click', async () => {
@@ -218,6 +218,118 @@ document.addEventListener('DOMContentLoaded', () => {
       a.download = `sentinel_incidents_${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
+    });
+  }
+
+  // Export Incidents CSV
+  const btnExportCsv = document.getElementById('btn-export-csv');
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', async () => {
+      const res = await fetch('/api/incidents');
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        alert('No incidents recorded yet.');
+        return;
+      }
+      const headers = ['ID', 'Timestamp', 'Track ID', 'Violation Type', 'Severity', 'Zone', 'Description'];
+      const rows = data.map(inc => [
+        `"${inc.id || ''}"`,
+        `"${inc.timestamp || ''}"`,
+        `"${inc.track_id || ''}"`,
+        `"${inc.type || ''}"`,
+        `"${inc.severity || ''}"`,
+        `"${inc.zone || ''}"`,
+        `"${(inc.description || '').replace(/"/g, '""')}"`
+      ]);
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sentinel_incidents_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Video Source Selector
+  const sourceSelect = document.getElementById('video-source-select');
+  if (sourceSelect) {
+    sourceSelect.addEventListener('change', async () => {
+      const chosenSource = sourceSelect.value;
+      try {
+        const res = await fetch('/api/source', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: chosenSource })
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+          // Refresh video element src
+          const videoElem = document.getElementById('live-video-feed');
+          if (videoElem) {
+            videoElem.src = '/video_feed?t=' + Date.now();
+          }
+        }
+      } catch (err) {
+        console.error('Error switching video source:', err);
+      }
+    });
+  }
+
+  // Geofence Presets & Editor
+  const zonePresets = {
+    'default': [[420, 180], [860, 180], [920, 520], [380, 520]],
+    'expanded': [[360, 140], [920, 140], [980, 580], [320, 580]],
+    'conveyor': [[80, 320], [320, 320], [340, 680], [70, 680]]
+  };
+
+  const presetSelect = document.getElementById('zone-preset-select');
+  const coordsInput = document.getElementById('zone-coords-input');
+  const btnApplyZone = document.getElementById('btn-apply-zone');
+  const zonePill = document.getElementById('zone-status-pill');
+
+  if (presetSelect && coordsInput) {
+    presetSelect.addEventListener('change', () => {
+      const val = presetSelect.value;
+      if (zonePresets[val]) {
+        coordsInput.value = JSON.stringify(zonePresets[val]);
+      }
+    });
+  }
+
+  if (btnApplyZone && coordsInput) {
+    btnApplyZone.addEventListener('click', async () => {
+      try {
+        const coords = JSON.parse(coordsInput.value);
+        if (!Array.isArray(coords) || coords.length < 3) {
+          alert('Polygon must contain at least 3 [X,Y] coordinate pairs.');
+          return;
+        }
+        btnApplyZone.disabled = true;
+        btnApplyZone.innerText = 'Applying...';
+        const res = await fetch('/api/zones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ danger_zone: coords })
+        });
+        const resp = await res.json();
+        if (resp.status === 'success') {
+          if (zonePill) {
+            zonePill.innerText = 'ZONE UPDATED!';
+            zonePill.style.color = 'var(--accent-emerald)';
+            setTimeout(() => {
+              zonePill.innerText = 'RUN-TIME ACTIVE';
+              zonePill.style.color = 'var(--accent-cyan)';
+            }, 2500);
+          }
+        }
+      } catch (err) {
+        alert('Invalid polygon JSON format. Use format: [[x1, y1], [x2, y2], ...]');
+      } finally {
+        btnApplyZone.disabled = false;
+        btnApplyZone.innerText = 'Apply Zone';
+      }
     });
   }
 

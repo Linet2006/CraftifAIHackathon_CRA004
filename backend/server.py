@@ -15,14 +15,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Add current directory to path
+# Add root and current directory to sys.path
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(CURRENT_DIR)
-sys.path.append(os.path.join(CURRENT_DIR, "..", "hardware_bridge"))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+for p in [CURRENT_DIR, ROOT_DIR]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-from detector import pipeline_engine
-from mqtt_handler import mqtt_service
-from closed_loop_controller import bridge
+from backend.detector import pipeline_engine
+from backend.mqtt_handler import mqtt_service
+from hardware_bridge.closed_loop_controller import bridge
 
 app = FastAPI(title="Workplace Safety Sentinel API", version="1.0.0")
 
@@ -110,10 +112,47 @@ def get_zones():
 class ZoneUpdateRequest(BaseModel):
     danger_zone: List[List[int]]
 
+ZONE_PRESETS = {
+    "default": {
+        "name": "Robotic Cell Alpha (Standard)",
+        "coords": [[420, 180], [860, 180], [920, 520], [380, 520]]
+    },
+    "expanded": {
+        "name": "Expanded Safety Envelope",
+        "coords": [[360, 140], [920, 140], [980, 580], [320, 580]]
+    },
+    "conveyor": {
+        "name": "Conveyor Aisle Danger Zone",
+        "coords": [[80, 320], [320, 320], [340, 680], [70, 680]]
+    }
+}
+
+@app.get("/api/zone_presets")
+def get_zone_presets():
+    return ZONE_PRESETS
+
 @app.post("/api/zones")
 def update_zones(req: ZoneUpdateRequest):
     success = pipeline_engine.update_danger_zone(req.danger_zone)
     return {"status": "success" if success else "error", "zones": pipeline_engine.danger_zone_coords}
+
+class SourceRequest(BaseModel):
+    source: str
+
+@app.post("/api/source")
+def set_source(req: SourceRequest):
+    global current_source, cap
+    if req.source in ["demo_video", "webcam"]:
+        if cap is not None:
+            cap.release()
+            cap = None
+        current_source = req.source
+        return {"status": "success", "source": current_source}
+    return {"status": "error", "message": "Invalid source mode"}
+
+@app.get("/api/source")
+def get_source():
+    return {"source": current_source}
 
 @app.post("/api/actuator/trigger")
 def trigger_actuator():
@@ -149,10 +188,20 @@ def serve_dashboard():
 
 if __name__ == "__main__":
     import uvicorn
+    import webbrowser
+    import threading
+
+    def open_browser():
+        time.sleep(1.2)
+        webbrowser.open("http://127.0.0.1:8000")
+
+    threading.Thread(target=open_browser, daemon=True).start()
+
     print("\n=======================================================")
     print(" Workplace Safety Sentinel - Edge Vision Engine")
     print(" Listening on: http://127.0.0.1:8000")
     print(" Video Feed:   http://127.0.0.1:8000/video_feed")
     print(" API Metrics:  http://127.0.0.1:8000/api/stats")
+    print(" Browser will open automatically at http://127.0.0.1:8000")
     print("=======================================================\n")
     uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=False)

@@ -39,6 +39,13 @@
     </div>
 
     <div class="nav-actions">
+      <div class="source-selector-wrapper">
+        <label for="video-source-select" style="font-size: 0.75rem; color: var(--text-muted); margin-right: 4px;">Source:</label>
+        <select id="video-source-select" class="custom-select-small">
+          <option value="demo_video">📹 Factory Simulation</option>
+          <option value="webcam">📷 Live USB Webcam</option>
+        </select>
+      </div>
       <button class="btn-secondary" id="btn-toggle-audio">🔊 Sound: ON</button>
       <button class="btn-secondary" id="btn-reset-estop">Reset Alarm</button>
       <button class="btn-danger" id="btn-manual-estop">
@@ -102,15 +109,49 @@
           </div>
         </div>
 
-        <div>
+        <div style="display: flex; gap: 6px;">
           <button class="btn-secondary" id="btn-export-incidents" style="font-size: 0.75rem;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
-            Export JSON Logs
+            Export JSON
           </button>
+          <button class="btn-secondary" id="btn-export-csv" style="font-size: 0.75rem;">
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Polygon Geofence Editor (REQ-04 / REQ-05) -->
+      <div class="geofence-editor-panel">
+        <div class="geofence-header">
+          <div class="card-title-group">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-amber)" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <span style="font-weight: 600; font-size: 0.82rem; color: var(--text-main);">Dynamic Polygon Geofence Editor (REQ-05)</span>
+          </div>
+          <span id="zone-status-pill" class="badge-accent">RUN-TIME ACTIVE</span>
+        </div>
+        <div class="geofence-controls">
+          <div class="control-group">
+            <label for="zone-preset-select" style="font-size: 0.75rem; color: var(--text-muted);">Preset Zone:</label>
+            <select id="zone-preset-select" class="custom-select-small">
+              <option value="default">Robotic Cell Alpha (Standard)</option>
+              <option value="expanded">Expanded High-Risk Envelope</option>
+              <option value="conveyor">Conveyor Aisle Hazard Area</option>
+              <option value="custom">Custom Vertices</option>
+            </select>
+          </div>
+          <div class="control-group" style="flex: 1;">
+            <label for="zone-coords-input" style="font-size: 0.75rem; color: var(--text-muted);">Polygon Points [X,Y]:</label>
+            <input type="text" id="zone-coords-input" class="custom-input-small" value="[[420, 180], [860, 180], [920, 520], [380, 520]]" spellcheck="false" />
+          </div>
+          <button class="btn-primary" id="btn-apply-zone" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; align-self: flex-end;">Apply Zone</button>
         </div>
       </div>
     </section>
